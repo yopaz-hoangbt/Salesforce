@@ -1,5 +1,5 @@
 /* global L */
-import { LightningElement, wire } from 'lwc';
+import { LightningElement, wire, track } from 'lwc';
 import {
     publish,
     subscribe,
@@ -11,13 +11,19 @@ import PROPERTY_SELECTED from '@salesforce/messageChannel/PropertySelected__c';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { loadScript, loadStyle } from 'lightning/platformResourceLoader';
 import LEAFLET from '@salesforce/resourceUrl/leafletjs';
-import getPagedPropertyList from '@salesforce/apex/PropertyController.getPagedPropertyList';
+import getListLocation from '@salesforce/apex/EmployeeController.getListLocation';
+import createLocation from '@salesforce/apex/EmployeeController.createLocation';
+import { refreshApex } from '@salesforce/apex';
 
 const LEAFLET_NOT_LOADED = 0;
 const LEAFLET_LOADING = 1;
 const LEAFLET_READY = 2;
 
 export default class PropertyListMap extends LightningElement {
+    @track isModalOpen = false;
+    @track name = '';
+    @track latitude = '';
+    @track longitude = '';
     properties = [];
 
     // Map
@@ -32,34 +38,48 @@ export default class PropertyListMap extends LightningElement {
     minBathrooms = null;
     pageNumber = null;
     pageSize = null;
+    @track locationCustom = [];
+    wiredLocations;
+
+    @wire(getListLocation)
+    listViewHandler({data, error}){
+        this.wiredLocations = data;
+        if(data){
+            console.log(data)
+            this.locationCustom = data;
+        }
+        if(error){
+            console.error(error)
+        }
+    }
 
     @wire(MessageContext)
     messageContext;
 
-    @wire(getPagedPropertyList, {
-        searchKey: '$searchKey',
-        maxPrice: '$maxPrice',
-        minBedrooms: '$minBedrooms',
-        minBathrooms: '$minBathrooms',
-        pageSize: '$pageSize',
-        pageNumber: '$pageNumber'
-    })
-    wiredProperties({ error, data }) {
-        if (data) {
-            this.properties = data.records;
-            // Display properties on map
-            this.displayProperties();
-        } else if (error) {
-            this.properties = [];
-            this.dispatchEvent(
-                new ShowToastEvent({
-                    title: 'Error loading properties',
-                    message: error.message,
-                    variant: 'error'
-                })
-            );
-        }
-    }
+    //@wire(getPagedPropertyList, {
+    //    searchKey: '$searchKey',
+    //    maxPrice: '$maxPrice',
+    //    minBedrooms: '$minBedrooms',
+    //    minBathrooms: '$minBathrooms',
+    //    pageSize: '$pageSize',
+    //    pageNumber: '$pageNumber'
+    //})
+    //wiredProperties({ error, data }) {
+    //    if (data) {
+    //        this.properties = data.records;
+    //        // Display properties on map
+    //        this.displayProperties();
+    //    } else if (error) {
+    //        this.properties = [];
+    //        this.dispatchEvent(
+    //            new ShowToastEvent({
+    //                title: 'Error loading properties',
+    //                message: error.message,
+    //                variant: 'error'
+    //            })
+    //        );
+    //    }
+    //}
 
     connectedCallback() {
         this.subscription = subscribe(
@@ -69,6 +89,37 @@ export default class PropertyListMap extends LightningElement {
                 this.handleFilterChange(message);
             }
         );
+    }
+
+    showToast(title, message, variant) {
+        const event = new ShowToastEvent({ title, message, variant });
+        this.dispatchEvent(event);
+    }
+
+    closeModal() {
+        this.isModalOpen = false;
+    }
+
+    handleChange(event) {
+        const field = event.target.dataset.field;
+        this[field] = event.target.value;
+    }
+
+    saveLocation() {
+        console.log(`Saved: Name=${this.name}, Latitude=${this.latitude}, Longitude=${this.longitude}`);
+        createLocation({ 
+            name: this.name, 
+            latitude: parseFloat(this.latitude),
+            longitude: parseFloat(this.longitude)
+        })
+        .then(() => {
+            this.showToast('Success', 'Location added successfully!', 'success');
+            this.closeModal();
+            return refreshApex(this.wiredLocations);
+        })
+        .catch(error => {
+            this.showToast('Error', error.body.message, 'error');
+        });
     }
 
     disconnectedCallback() {
@@ -100,14 +151,22 @@ export default class PropertyListMap extends LightningElement {
                 tap: false
                 // eslint-disable-next-line no-magic-numbers
             });
-            this.map.setView([42.356045, -71.08565], 13);
+            this.map.setView([21.0285, 105.8542], 11);
             this.map.scrollWheelZoom.disable();
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '© OpenStreetMap'
+                attribution: '© OpenStreetMap',
+                scrollWheelZoom: true
             }).addTo(this.map);
 
             // Leaflet is ready
+            this.map.on('click', (event) => {
+                const { lat, lng } = event.latlng;
+                console.log("Tọa độ:", lat, lng)
+                this.isModalOpen = true;
+                this.latitude = lat;
+                this.longitude = lng;
+            });
             this.leafletState = LEAFLET_READY;
 
             // Display properties
@@ -149,22 +208,25 @@ export default class PropertyListMap extends LightningElement {
         };
 
         // Prepare property markers
-        const markers = this.properties.map((property) => {
-            const latLng = [
-                property.Location__Latitude__s,
-                property.Location__Longitude__s
-            ];
-            const tooltipMarkup = this.getTooltipMarkup(property);
-            const marker = L.marker(latLng, { icon });
-            marker.propertyId = property.Id;
-            marker.on('click', markerClickHandler);
-            marker.bindTooltip(tooltipMarkup, { offset: [45, -40] });
-            return marker;
-        });
-
-        // Create a layer with property markers and add it to map
-        this.propertyLayer = L.layerGroup(markers);
-        this.propertyLayer.addTo(this.map);
+        console.log(this.locationCustom)
+        if(this.locationCustom) {
+            const markers = this.locationCustom.map((property) => {
+                const latLng = [
+                    property.Latitude__c,
+                    property.Longitude__c
+                ];
+                const tooltipMarkup = this.getTooltipMarkup(property);
+                const marker = L.marker(latLng, { icon });
+                marker.propertyId = property.Id;
+                marker.on('click', markerClickHandler);
+                marker.bindTooltip(tooltipMarkup, { offset: [45, -40] });
+                return marker;
+            });
+    
+            // Create a layer with property markers and add it to map
+            this.propertyLayer = L.layerGroup(markers);
+            this.propertyLayer.addTo(this.map);
+        }
     }
 
     handleFilterChange(filters) {
@@ -175,10 +237,9 @@ export default class PropertyListMap extends LightningElement {
     }
 
     getTooltipMarkup(property) {
-        return `<div class="tooltip-picture" style="background-image:url(${property.Thumbnail__c})">  
+        return `<div class="tooltip-picture" style="background-image:url(${property.Image__c || 'https://i.pinimg.com/736x/01/7c/44/017c44c97a38c1c4999681e28c39271d.jpg'})">  
   <div class="lower-third">
     <h1>${property.Name}</h1>
-    <p>Beds: ${property.Beds__c} - Baths: ${property.Baths__c}</p>
   </div>
 </div>`;
     }

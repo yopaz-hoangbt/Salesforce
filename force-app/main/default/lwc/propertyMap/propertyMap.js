@@ -35,8 +35,8 @@ export default class PropertyMap extends LightningElement {
             this.markers = [
                 {
                     location: {
-                        Latitude: property.Location__Latitude__s.value,
-                        Longitude: property.Location__Longitude__s.value
+                        Latitude: 21.0285,
+                        Longitude: 105.8544
                     },
                     title: `${property.Name.value}`,
                     description: `<b>Address</b>: ${property.Address__c.value}`,

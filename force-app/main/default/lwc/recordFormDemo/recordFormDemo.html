@@ -1,0 +1,99 @@
+<template>
+    <lightning-card title="Demo CRUD" class="container_contact">
+        <lightning-layout>
+            <lightning-layout-item size="2" padding="around-small">
+                <lightning-combobox name="filterBy" value={filterBy} label="Filter By"
+                options={FilterByOptions} onchange={filterbyHandler}></lightning-combobox>
+            </lightning-layout-item>
+            <lightning-layout-item size="4" padding="around-small">
+                <lightning-input type="text" label="Filter" onkeyup={filterHandler}></lightning-input>
+            </lightning-layout-item>
+            <!---Sorting dropdown-->
+            <lightning-layout-item size="2" alignment-bump="left" padding="around-small">
+                <lightning-combobox name="sortedBy" value={sortedBy} label="Sort By"
+                options={sortByOptions} onchange={sortHandler}></lightning-combobox>
+            </lightning-layout-item>
+        </lightning-layout>
+        <div class="slds-var-p-around_medium">
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Title</th>
+                        <th>Phone</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template for:each={contacts} for:item="contact">
+                        <tr key={contact.fields.Id.value}>
+                            <td>{contact.fields.Id.value}</td>
+                            <td>{contact.fields.Name.value}</td>
+                            <td>{contact.fields.Email.value}</td>
+                            <td>{contact.fields.Title.value}</td>
+                            <td>{contact.fields.Phone.value}</td>
+                            <td>
+                                <lightning-button label="Edit"
+                                    variant="brand" 
+                                    onclick={handleEdit} 
+                                    data-id={contact.fields.Id.value}
+                                    style="margin-right: 10px;">
+                                </lightning-button>
+                                <lightning-button label="Delete" 
+                                    variant="destructive" 
+                                    onclick={handleDelete} 
+                                    data-id={contact.fields.Id.value}>
+                                </lightning-button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div class="slds-grid">
+            <div class="slds-m-around_medium">
+                <lightning-button label="Previous" onclick={handlePreviousPage}></lightning-button>
+            </div>
+            <div class="slds-m-around_medium">
+                <lightning-button label="Next" onclick={handleNextPage}></lightning-button>
+            </div>
+        </div>
+    </lightning-card>
+
+    <!-- Modal -->
+    <template if:true={isModalOpen}>
+        <section role="dialog" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <!-- Header -->
+                <header class="slds-modal__header">
+                    <lightning-button-icon icon-name="utility:close"
+                        alternative-text="Close"
+                        class="slds-modal__close"
+                        onclick={closeModal}>
+                    </lightning-button-icon>
+                    <h2 class="slds-text-heading_medium">Edit Contact</h2>
+                </header>
+
+                <!-- Body -->
+                <div class="slds-modal__content slds-p-around_medium">
+                    <!--<lightning-input label="Name" value={editName} onchange={handleInputChange} data-field="Name"></lightning-input>-->
+                    <lightning-input label="Email" value={editEmail} onchange={handleInputChange} data-field="Email"></lightning-input>
+                    <lightning-input label="Title" value={editTitle} onchange={handleInputChange} data-field="Title"></lightning-input>
+                    <lightning-input label="Phone" value={editPhone} onchange={handleInputChange} data-field="Phone"></lightning-input>
+                </div>
+
+                <!-- Footer -->
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" variant="neutral" onclick={closeModal}></lightning-button>
+                    <lightning-button label="Save" variant="brand" onclick={saveRecord}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+    <div style="margin-top: 20px;">
+        <lightning-button variant="brand" label="Generate PDF" onclick={pdfHandler}></lightning-button>
+    </div>
+</template>
