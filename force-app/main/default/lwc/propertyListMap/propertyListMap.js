@@ -45,8 +45,10 @@ export default class PropertyListMap extends LightningElement {
     listViewHandler({data, error}){
         this.wiredLocations = data;
         if(data){
-            console.log(data)
             this.locationCustom = data;
+            if (this.leafletState === LEAFLET_READY) {
+            this.displayProperties(); // 🔥 Chỉ gọi khi dữ liệu đã sẵn sàng
+        }
         }
         if(error){
             console.error(error)
@@ -208,7 +210,6 @@ export default class PropertyListMap extends LightningElement {
         };
 
         // Prepare property markers
-        console.log(this.locationCustom)
         if(this.locationCustom) {
             const markers = this.locationCustom.map((property) => {
                 const latLng = [
